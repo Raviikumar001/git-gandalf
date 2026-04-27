@@ -79,6 +79,32 @@ function extractDiffMetadata(diff) {
   };
 }
 
+function normalizeJudgment(rawOutput) {
+  let parsed;
+  try {
+    parsed = JSON.parse(rawOutput);
+  } catch (error) {
+    throw new Error("LLM output is not valid JSON");
+  }
+
+  const risk = parsed.risk?.toUpperCase();
+  if (!["LOW", "MEDIUM", "HIGH"].includes(risk)) {
+    throw new Error(`Invalid risk value: ${parsed.risk}`);
+  }
+
+  const issues = Array.isArray(parsed.issues) ? parsed.issues : [];
+  if (!issues.every((issue) => typeof issue === "string")) {
+    throw new Error("All issues must be strings");
+  }
+
+  const summary = typeof parsed.summary === "string" ? parsed.summary : "";
+  if (!summary) {
+    throw new Error("Summary is required and must be a non-empty string");
+  }
+
+  return { risk, issues, summary };
+}
+
 function buildJudgePrompt(metadata, rawDiff) {
   return `You are a senior engineer reviewing a staged commit. Analyze the diff strictly and output valid JSON only.
 
