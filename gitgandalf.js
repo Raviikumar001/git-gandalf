@@ -1,6 +1,8 @@
 "use strict";
 
 const MAX_DIFF_BYTES = 1024 * 1024;
+const LLM_TIMEOUT_MS = 30000;
+const LLM_API_URL = process.env.GANDALF_LLM_URL || "http://localhost:1234/v1/chat/completions";
 
 function readStdin() {
   if (process.stdin.isTTY) {
@@ -75,6 +77,46 @@ function extractDiffMetadata(diff) {
     lines_added: linesAdded,
     lines_removed: linesRemoved,
   };
+}
+
+async function callLocalLLM(prompt) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(LLM_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "local",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.3,
+      }),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`LLM API returned ${response.status}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) {
+      throw new Error("No response from LLM");
+    }
+
+    return content;
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error("LLM request timed out");
+    }
+    if (error.code === "ECONNREFUSED") {
+      throw new Error("LLM is not running (check localhost:1234)");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 async function main() {
