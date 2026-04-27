@@ -213,6 +213,43 @@ function getExitCodeForDecision(decision) {
   return decision === "BLOCK" ? 1 : 0;
 }
 
+function handleFailureMode(error) {
+  const isLLMNotRunning = error.message.includes("not running");
+  const isLLMTimeout = error.message.includes("timed out");
+  const isMalformed = error.message.includes("JSON") || error.message.includes("Invalid");
+
+  if (isLLMNotRunning || isLLMTimeout) {
+    return {
+      judgment: {
+        risk: "MEDIUM",
+        issues: [],
+        summary: `LLM unavailable: ${error.message}. Commit allowed with caution.`,
+      },
+      decision: "WARN",
+    };
+  }
+
+  if (isMalformed) {
+    return {
+      judgment: {
+        risk: "HIGH",
+        issues: ["LLM returned malformed judgment"],
+        summary: `Cannot trust LLM output: ${error.message}`,
+      },
+      decision: "BLOCK",
+    };
+  }
+
+  return {
+    judgment: {
+      risk: "HIGH",
+      issues: ["Internal error during review"],
+      summary: `Unexpected error: ${error.message || "unknown failure"}`,
+    },
+    decision: "BLOCK",
+  };
+}
+
 async function main() {
   const rawDiff = await readStdin();
   const normalizedDiff = normalizeLineEndings(rawDiff);
@@ -225,8 +262,25 @@ async function main() {
   }
 
   const metadata = extractDiffMetadata(normalizedDiff);
-  process.stdout.write("Git Gandalf Review\n(no analysis yet)\n");
-  process.exit(0);
+  const prompt = buildJudgePrompt(metadata, normalizedDiff);
+
+  let judgment;
+  let decision;
+
+  try {
+    const llmOutput = await callLocalLLM(prompt);
+    judgment = normalizeJudgment(llmOutput);
+    decision = decidePolicy(judgment);
+  } catch (error) {
+    const failureResult = handleFailureMode(error);
+    judgment = failureResult.judgment;
+    decision = failureResult.decision;
+  }
+
+  const review = renderReview(judgment, decision);
+  process.stdout.write(review);
+  const exitCode = getExitCodeForDecision(decision);
+  process.exit(exitCode);
 }
 
 main().catch((error) => {
