@@ -105,6 +105,16 @@ function normalizeJudgment(rawOutput) {
   return { risk, issues, summary };
 }
 
+function decidePolicy(judgment) {
+  const riskToPolicyMap = {
+    LOW: "ALLOW",
+    MEDIUM: "WARN",
+    HIGH: "BLOCK",
+  };
+
+  return riskToPolicyMap[judgment.risk];
+}
+
 function buildJudgePrompt(metadata, rawDiff) {
   return `You are a senior engineer reviewing a staged commit. Analyze the diff strictly and output valid JSON only.
 
