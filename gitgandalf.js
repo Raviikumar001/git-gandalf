@@ -2,7 +2,8 @@
 
 const MAX_DIFF_BYTES = 1024 * 1024;
 const LLM_TIMEOUT_MS = 30000;
-const LLM_API_URL = process.env.GANDALF_LLM_URL || "http://localhost:1234/v1/chat/completions";
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_MODEL = "gemini-2.0-flash";
 
 function readStdin() {
   if (process.stdin.isTTY) {
@@ -169,39 +170,51 @@ Risk levels:
 Output ONLY JSON, no other text.`;
 }
 
-async function callLocalLLM(prompt) {
+async function callGeminiLLM(prompt) {
+  if (!GEMINI_API_KEY) {
+    throw new Error("GEMINI_API_KEY environment variable is required");
+  }
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
 
   try {
-    const response = await fetch(LLM_API_URL, {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+    const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "local",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.3,
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: prompt }],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 1024,
+        },
       }),
       signal: controller.signal,
     });
 
     if (!response.ok) {
-      throw new Error(`LLM API returned ${response.status}`);
+      const error = await response.json().catch(() => ({}));
+      throw new Error(
+        `Gemini API error ${response.status}: ${error.error?.message || "unknown"}`
+      );
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!content) {
-      throw new Error("No response from LLM");
+      throw new Error("No response from Gemini");
     }
 
     return content;
   } catch (error) {
     if (error.name === "AbortError") {
       throw new Error("LLM request timed out");
-    }
-    if (error.code === "ECONNREFUSED") {
-      throw new Error("LLM is not running (check localhost:1234)");
     }
     throw error;
   } finally {
@@ -268,7 +281,7 @@ async function main() {
   let decision;
 
   try {
-    const llmOutput = await callLocalLLM(prompt);
+    const llmOutput = await callGeminiLLM(prompt);
     judgment = normalizeJudgment(llmOutput);
     decision = decidePolicy(judgment);
   } catch (error) {

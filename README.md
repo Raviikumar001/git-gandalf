@@ -7,9 +7,7 @@ Local LLM–powered pre-commit code reviewer. Your tech lead says: "You Shall No
 ### Requirements
 
 - Node.js 18.0 or later
-- A local LLM running on localhost:1234 (default)
-  - [LM Studio](https://lmstudio.ai/) (recommended)
-  - Or any OpenAI-compatible API
+- Google Gemini API key ([get one free](https://aistudio.google.com/apikey))
 
 ### Installation
 
@@ -33,7 +31,11 @@ Local LLM–powered pre-commit code reviewer. Your tech lead says: "You Shall No
    chmod +x .git/hooks/pre-commit
    ```
 
-4. Start your local LLM on localhost:1234 (or set `GANDALF_LLM_URL` environment variable)
+4. Set your Gemini API key:
+   ```bash
+   export GEMINI_API_KEY="your-api-key-here"
+   ```
+   Or add to your shell profile (`.bashrc`, `.zshrc`, etc.)
 
 ## Usage
 
@@ -55,8 +57,8 @@ git commit --no-verify -m "bypass gandalf"
 ## How it works
 
 1. Hook extracts staged diff and pipes to `gitgandalf.js`
-2. Script sends diff + metadata to local LLM with review prompt
-3. LLM judges risk level: LOW, MEDIUM, or HIGH
+2. Script sends diff + metadata to Google Gemini with review prompt
+3. Gemini judges risk level: LOW, MEDIUM, or HIGH
 4. Decision applied:
    - **LOW** → ✅ Commit proceeds
    - **MEDIUM** → ⚠️ Commit proceeds (warning shown)
@@ -64,14 +66,15 @@ git commit --no-verify -m "bypass gandalf"
 
 ## Limitations
 
-- **Local only**: Requires LLM running locally (no cloud calls)
-- **No retries**: If LLM times out, commit is warned (not blocked)
+- **Requires API key**: GEMINI_API_KEY must be set
+- **Cloud calls**: Diffs are sent to Google (not local)
+- **No retries**: If API times out, commit is warned (not blocked)
 - **No configuration**: Policy is hardcoded (LOW→ALLOW, MEDIUM→WARN, HIGH→BLOCK)
 - **No prompts**: Prompt is fixed and versioned inline
 
 ## Environment Variables
 
-- `GANDALF_LLM_URL` — OpenAI-compatible API endpoint (default: `http://localhost:1234/v1/chat/completions`)
+- `GEMINI_API_KEY` — Required. Your Google Gemini API key
 
 ## Exit Codes
 
