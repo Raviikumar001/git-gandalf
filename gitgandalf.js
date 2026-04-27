@@ -115,6 +115,31 @@ function decidePolicy(judgment) {
   return riskToPolicyMap[judgment.risk];
 }
 
+function renderReview(judgment, decision) {
+  let output = "🧙 Git Gandalf Review\n\n";
+  output += `Risk: ${judgment.risk}\n\n`;
+
+  if (judgment.issues.length > 0) {
+    output += "Issues:\n";
+    for (const issue of judgment.issues) {
+      output += `- ${issue}\n`;
+    }
+    output += "\n";
+  }
+
+  output += `${judgment.summary}\n\n`;
+
+  const decisionLine =
+    decision === "BLOCK"
+      ? `🚫 Decision: BLOCK (commit rejected)`
+      : decision === "WARN"
+        ? `⚠️  Decision: WARN (allow, but review concerns)`
+        : `✅ Decision: ALLOW (proceed safely)`;
+
+  output += decisionLine + "\n";
+  return output;
+}
+
 function buildJudgePrompt(metadata, rawDiff) {
   return `You are a senior engineer reviewing a staged commit. Analyze the diff strictly and output valid JSON only.
 
