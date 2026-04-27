@@ -48,6 +48,35 @@ function normalizeLineEndings(text) {
   return text.replace(/\r\n?/g, "\n");
 }
 
+function extractDiffMetadata(diff) {
+  const lines = diff.split("\n");
+  const files = new Set();
+  let linesAdded = 0;
+  let linesRemoved = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    if (line.startsWith("diff --git")) {
+      const match = line.match(/b\/(.+)$/);
+      if (match) {
+        files.add(match[1]);
+      }
+    } else if (line.startsWith("+") && !line.startsWith("+++")) {
+      linesAdded++;
+    } else if (line.startsWith("-") && !line.startsWith("---")) {
+      linesRemoved++;
+    }
+  }
+
+  return {
+    files_changed: files.size,
+    files: Array.from(files).sort(),
+    lines_added: linesAdded,
+    lines_removed: linesRemoved,
+  };
+}
+
 async function main() {
   const rawDiff = await readStdin();
   const normalizedDiff = normalizeLineEndings(rawDiff);
@@ -59,6 +88,7 @@ async function main() {
     process.exit(0);
   }
 
+  const metadata = extractDiffMetadata(normalizedDiff);
   process.stdout.write("Git Gandalf Review\n(no analysis yet)\n");
   process.exit(0);
 }
