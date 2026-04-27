@@ -79,6 +79,35 @@ function extractDiffMetadata(diff) {
   };
 }
 
+function buildJudgePrompt(metadata, rawDiff) {
+  return `You are a senior engineer reviewing a staged commit. Analyze the diff strictly and output valid JSON only.
+
+Diff metadata:
+- Files changed: ${metadata.files_changed}
+- Files: ${metadata.files.join(", ")}
+- Lines added: ${metadata.lines_added}
+- Lines removed: ${metadata.lines_removed}
+
+Raw diff:
+\`\`\`
+${rawDiff}
+\`\`\`
+
+Evaluate the risk of this commit. Output ONLY valid JSON with this exact schema:
+{
+  "risk": "LOW" or "MEDIUM" or "HIGH",
+  "issues": ["issue1", "issue2"],
+  "summary": "Brief explanation"
+}
+
+Risk levels:
+- LOW: Safe changes, no concerns
+- MEDIUM: Has some concern but acceptable
+- HIGH: Serious issue that should block the commit
+
+Output ONLY JSON, no other text.`;
+}
+
 async function callLocalLLM(prompt) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
