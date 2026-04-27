@@ -209,6 +209,10 @@ async function callLocalLLM(prompt) {
   }
 }
 
+function getExitCodeForDecision(decision) {
+  return decision === "BLOCK" ? 1 : 0;
+}
+
 async function main() {
   const rawDiff = await readStdin();
   const normalizedDiff = normalizeLineEndings(rawDiff);
