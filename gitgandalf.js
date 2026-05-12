@@ -3,7 +3,7 @@
 const MAX_DIFF_BYTES = 1024 * 1024;
 const LLM_TIMEOUT_MS = 30000;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = "gemini-2.0-flash";
+const GEMINI_MODEL = "gemini-3-flash-preview";
 
 function readStdin() {
   if (process.stdin.isTTY) {
